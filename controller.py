@@ -20,7 +20,7 @@ cors = CORS(app, headers=["X-Requested-With", "X-CSRFToken", "Content-Type"], re
 
 emulators = {}
 
-@app.route('/launch', methods=['POST'])
+@app.route('/qemu/launch', methods=['POST'])
 def launch():
     if len(emulators) >= settings.EMULATOR_LIMIT:
         abort(503)
@@ -31,7 +31,7 @@ def launch():
     emu.run()
     return jsonify(uuid=uuid, ws_port=emu.ws_port, vnc_display=emu.vnc_display, vnc_ws_port=emu.vnc_ws_port)
 
-@app.route('/<emu>/ping', methods=['POST'])
+@app.route('/qemu/<emu>/ping', methods=['POST'])
 def ping(emu):
     try:
         emu = UUID(emu)
@@ -51,7 +51,7 @@ def ping(emu):
         return jsonify(alive=False)
 
 
-@app.route('/<emu>/kill', methods=['POST'])
+@app.route('/qemu/<emu>/kill', methods=['POST'])
 def kill(emu):
     try:
         emu = UUID(emu)
