@@ -22,6 +22,8 @@ emulators = {}
 
 @app.route('/qemu/launch', methods=['POST'])
 def launch():
+    if request.headers.get('authorization', None) != settings.LAUNCH_AUTH_HEADER:
+        abort(403)
     if len(emulators) >= settings.EMULATOR_LIMIT:
         abort(503)
     uuid = uuid4()
