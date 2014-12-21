@@ -40,6 +40,7 @@ class Emulator(object):
         self._spawn_pkjs()
 
     def kill(self):
+        self.spi_image.close()
         if self.qemu is not None:
             self.qemu.terminate()
         if self.pkjs is not None:
@@ -83,7 +84,7 @@ class Emulator(object):
             "-rtc", "base=localtime",
             "-cpu", "cortex-m3",
             "-pflash", settings.QEMU_MICRO_IMAGE,
-            "-mtdblock", settings.QEMU_SPI_IMAGE,
+            "-mtdblock", self.spi_image.name,
             "-serial", "file:uart1.log",  # this isn't useful, but...
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
