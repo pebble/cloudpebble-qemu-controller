@@ -36,7 +36,7 @@ class Emulator(object):
         self._choose_ports()
         self._make_spi_image()
         self._spawn_qemu()
-        gevent.sleep(3)  # wait for the pebble to boot.
+        gevent.sleep(4)  # wait for the pebble to boot.
         self._spawn_pkjs()
 
     def kill(self):
@@ -74,6 +74,10 @@ class Emulator(object):
         return port
 
     def _spawn_qemu(self):
+        if settings.SSL_ROOT is not None:
+            x509 = ",x509=%s" % settings.SSL_ROOT
+        else:
+            x509 = ""
         self.qemu = subprocess.Popen([
             settings.QEMU_BIN,
             "-rtc", "base=localtime",
@@ -85,17 +89,21 @@ class Emulator(object):
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
             "-monitor", "stdio",
             "-machine", "pebble-bb2",
-            "-vnc", ":%d,password,websocket=%d" % (self.vnc_display, self.vnc_ws_port)
+            "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
         ], cwd=settings.QEMU_DIR, stdout=None, stdin=subprocess.PIPE, stderr=None)
         self.qemu.stdin.write("change vnc password\n")
         self.qemu.stdin.write("%s\n" % self.token[:8])
         self.group.spawn(self.qemu.communicate)
 
     def _spawn_pkjs(self):
+        if settings.SSL_ROOT is not None:
+            ssl_args = ['--ssl-root', settings.SSL_ROOT]
+        else:
+            ssl_args = []
         self.pkjs = subprocess.Popen([
             "%s/bin/python" % settings.PKJS_VIRTUALENV, settings.PKJS_BIN,
-            '127.0.0.1:%d' % self.bt_port,
-            str(self.ws_port),
-            self.token
-        ])
+            '--qemu', '127.0.0.1:%d' % self.bt_port,
+            '--port', str(self.ws_port),
+            '--token', self.token
+        ] + ssl_args)
         self.group.spawn(self.pkjs.communicate)
