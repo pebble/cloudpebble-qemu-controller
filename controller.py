@@ -11,7 +11,7 @@ from time import time as now
 
 import settings
 from emulator import Emulator
-from uuid import uuid4
+from uuid import uuid4, UUID
 import atexit
 
 app = Flask(__name__)
@@ -33,6 +33,10 @@ def launch():
 
 @app.route('/<emu>/ping', methods=['POST'])
 def ping(emu):
+    try:
+        emu = UUID(emu)
+    except ValueError:
+        abort(404)
     if emu not in emulators:
         return jsonify(alive=False)
     if emulators[emu].is_alive():
@@ -46,8 +50,13 @@ def ping(emu):
         del emulators[emu]
         return jsonify(alive=False)
 
+
 @app.route('/<emu>/kill', methods=['POST'])
 def kill(emu):
+    try:
+        emu = UUID(emu)
+    except ValueError:
+        abort(404)
     if emu in emulators:
         emulators[emu].kill()
     del emulators[emu]
