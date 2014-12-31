@@ -150,6 +150,7 @@ class Emulator(object):
         self.gdb = subprocess.Popen([
             settings.CLOUDPEBBLE_GDB_BIN,
             "--gdbserver", "127.0.0.1:%d" % self.gdbserver_port,
-            "--port", str(self.gdb_ws_port)
+            "--port", str(self.gdb_ws_port),
+            "--token ", self.token,
         ])
         self.group.spawn(self.gdb.communicate)
