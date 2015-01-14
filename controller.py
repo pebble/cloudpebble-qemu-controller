@@ -77,7 +77,9 @@ def proxy_ws(emu, attr):
 
     try:
         emulator = emulators[UUID(emu)]
-    except ValueError:
+    except ValueError as e:
+        print e
+        print emulators
         abort(404)
         return  # unreachable but makes IDE happy.
     client_ws = websocket.create_connection("wss://localhost:%d/" % getattr(emulator, attr))
