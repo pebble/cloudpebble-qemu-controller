@@ -99,8 +99,8 @@ def proxy_ws(emu, attr):
 
     print 'spawning relays'
     group = gevent.pool.Group()
-    group.spawn(do_recv, lambda: server_ws.recv(), lambda x: client_ws.send_binary(x))
-    group.spawn(do_recv, lambda: bytearray(client_ws.receive()), lambda x: server_ws.send(x))
+    group.spawn(do_recv, lambda: server_ws.receive(), lambda x: client_ws.send_binary(x))
+    group.spawn(do_recv, lambda: bytearray(client_ws.recv()), lambda x: server_ws.send(x))
     group.join()
     print 'relays exited'
     return ''
