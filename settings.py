@@ -16,4 +16,6 @@ SSL_ROOT = env.get('SSL_ROOT', None)
 PORT = int(env.get('QCON_PORT', 5001))
 HOST = env.get('QCON_HOST', '0.0.0.0')
 
+RUN_AS_USER = env.get('RUN_AS_USER', None)
+
 DEBUG = 'DEBUG' in env
