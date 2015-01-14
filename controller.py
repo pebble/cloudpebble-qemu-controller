@@ -98,14 +98,15 @@ def proxy_ws(emu, attr):
     group.spawn(do_recv, client_ws, server_ws)
     group.join()
     print 'relays exited'
+    return ''
 
 @app.route('/qemu/<emu>/ws/phone')
 def ws_phone(emu):
-    proxy_ws(emu, 'ws_port')
+    return proxy_ws(emu, 'ws_port')
 
 @app.route('/qemu/<emu>/ws/vnc')
 def ws_vnc(emu):
-    proxy_ws(emu, 'vnc_ws_port')
+    return proxy_ws(emu, 'vnc_ws_port')
 
 
 def _kill_idle_emulators():
