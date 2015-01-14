@@ -162,9 +162,9 @@ if __name__ == '__main__':
     ssl_args = {}
     if settings.SSL_ROOT is not None:
         ssl_args = {
-            'keyfile': '%s/server-key.pem',
-            'certfile': '%s/server-cert.pem',
-            'ca_certs': '%s/ca-cert.pem',
+            'keyfile': '%s/server-key.pem' % settings.SSL_ROOT,
+            'certfile': '%s/server-cert.pem' % settings.SSL_ROOT,
+            'ca_certs': '%s/ca-cert.pem' % settings.SSL_ROOT,
             'ssl_version': ssl.PROTOCOL_TLSv1,
         }
     server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler, **ssl_args)
