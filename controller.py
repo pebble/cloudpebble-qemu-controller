@@ -127,5 +127,5 @@ print "Emulator limit: %d" % settings.EMULATOR_LIMIT
 
 if __name__ == '__main__':
     app.debug = settings.DEBUG
-    server = pywsgi.WSGIServer(('', 5000), app, handler_class=WebSocketHandler)
+    server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler)
     server.serve_forever()
