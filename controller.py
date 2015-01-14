@@ -70,7 +70,7 @@ def kill(emu):
     return jsonify(status='ok')
 
 
-def proxy_ws(emu, attr):
+def proxy_ws(emu, attr, subprotocols=[]):
     server_ws = request.environ.get('wsgi.websocket', None)
     if server_ws is None:
         return "websocket endpoint", 400
@@ -82,7 +82,7 @@ def proxy_ws(emu, attr):
     print 'connecting...'
     target_url = "ws://localhost:%d/" % getattr(emulator, attr)
     try:
-        client_ws = websocket.create_connection(target_url, subprotocols=["binary"])
+        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols)
     except websocket.WebSocketException:
         print "connection to %s failed." % target_url
         import traceback
@@ -111,7 +111,7 @@ def ws_phone(emu):
 
 @app.route('/qemu/<emu>/ws/vnc')
 def ws_vnc(emu):
-    return proxy_ws(emu, 'vnc_ws_port')
+    return proxy_ws(emu, 'vnc_ws_port', subprotocols=['binary'])
 
 
 def _kill_idle_emulators():
