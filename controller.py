@@ -74,17 +74,22 @@ def proxy_ws(emu, attr):
     server_ws = request.environ.get('wsgi.websocket', None)
     if server_ws is None:
         return "websocket endpoint", 400
-
+    server_ws.
     try:
         emulator = emulators[UUID(emu)]
     except ValueError as e:
-        print e
-        print emulators
         abort(404)
         return  # unreachable but makes IDE happy.
-    client_ws = websocket.create_connection("wss://localhost:%d/" % getattr(emulator, attr))
+    print 'connecting...'
+    target_url = "ws://localhost:%d/" % getattr(emulator, attr)
+    try:
+        client_ws = websocket.create_connection(target_url)
+    except websocket.WebSocketException:
+        print "connection to %s failed." % target_url
+        import traceback
+        traceback.print_exc()
     alive = [True]
-
+    print 'connected'
     def do_recv(a, b):
         try:
             while alive[0]:
