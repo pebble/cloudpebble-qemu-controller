@@ -8,6 +8,7 @@ import gevent.pool
 from flask import Flask, request, jsonify, abort
 from flask.ext.cors import CORS
 from time import time as now
+import ssl
 
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
@@ -135,5 +136,13 @@ print "Emulator limit: %d" % settings.EMULATOR_LIMIT
 
 if __name__ == '__main__':
     app.debug = settings.DEBUG
-    server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler)
+    ssl_args = {}
+    if settings.SSL_ROOT is not None:
+        ssl_args = {
+            'keyfile': '%s/server-key.pem',
+            'certfile': '%s/server-cert.pem',
+            'ca_certs': '%s/ca-cert.pem',
+            'ssl_version': ssl.PROTOCOL_TLSv1,
+        }
+    server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler, **ssl_args)
     server.serve_forever()
