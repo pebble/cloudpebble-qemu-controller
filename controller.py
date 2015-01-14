@@ -9,6 +9,11 @@ from flask import Flask, request, jsonify, abort
 from flask.ext.cors import CORS
 from time import time as now
 
+from gevent import pywsgi
+from geventwebsocket.handler import WebSocketHandler
+import geventwebsocket
+import websocket
+
 import settings
 from emulator import Emulator
 from uuid import uuid4, UUID
@@ -64,6 +69,51 @@ def kill(emu):
     del emulators[emu]
     return jsonify(status='ok')
 
+
+def proxy_ws(emu, attr, subprotocols=[]):
+    server_ws = request.environ.get('wsgi.websocket', None)
+    if server_ws is None:
+        return "websocket endpoint", 400
+
+    try:
+        emulator = emulators[UUID(emu)]
+    except ValueError as e:
+        abort(404)
+        return  # unreachable but makes IDE happy.
+    target_url = "ws://localhost:%d/" % getattr(emulator, attr)
+    try:
+        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols)
+    except websocket.WebSocketException:
+        print "connection to %s failed." % target_url
+        import traceback
+        traceback.print_exc()
+        return 'failed', 500
+    alive = [True]
+    def do_recv(receive, send):
+        try:
+            while alive[0]:
+                send(receive())
+        except (websocket.WebSocketException, geventwebsocket.WebSocketError, TypeError):
+            alive[0] = False
+        except:
+            alive[0] = False
+            raise
+
+    group = gevent.pool.Group()
+    group.spawn(do_recv, lambda: server_ws.receive(), lambda x: client_ws.send_binary(x))
+    group.spawn(do_recv, lambda: bytearray(client_ws.recv()), lambda x: server_ws.send(x))
+    group.join()
+    return ''
+
+@app.route('/qemu/<emu>/ws/phone')
+def ws_phone(emu):
+    return proxy_ws(emu, 'ws_port')
+
+@app.route('/qemu/<emu>/ws/vnc')
+def ws_vnc(emu):
+    return proxy_ws(emu, 'vnc_ws_port', subprotocols=['binary'])
+
+
 def _kill_idle_emulators():
     while True:
         for key, emulator in emulators.items():
@@ -85,4 +135,5 @@ print "Emulator limit: %d" % settings.EMULATOR_LIMIT
 
 if __name__ == '__main__':
     app.debug = settings.DEBUG
-    app.run(settings.HOST, settings.PORT)
+    server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler)
+    server.serve_forever()
