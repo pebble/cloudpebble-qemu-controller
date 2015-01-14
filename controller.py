@@ -76,7 +76,7 @@ def proxy_ws(emu, attr):
         return "websocket endpoint", 400
 
     try:
-        emulator = emulators[emu]
+        emulator = emulators[UUID(emu)]
     except ValueError:
         abort(404)
         return  # unreachable but makes IDE happy.
