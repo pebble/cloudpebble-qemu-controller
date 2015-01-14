@@ -74,7 +74,6 @@ def proxy_ws(emu, attr):
     server_ws = request.environ.get('wsgi.websocket', None)
     if server_ws is None:
         return "websocket endpoint", 400
-    server_ws.
     try:
         emulator = emulators[UUID(emu)]
     except ValueError as e:
