@@ -84,9 +84,9 @@ def proxy_ws(emu, attr, subprotocols=[]):
     except ValueError as e:
         abort(404)
         return  # unreachable but makes IDE happy.
-    target_url = "ws://localhost:%d/" % getattr(emulator, attr)
+    target_url = "%s://localhost:%d/" % ("wss" if settings.SSL_ROOT is not None else "ws", getattr(emulator, attr))
     try:
-        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols)
+        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols, sslopt={'ssl_version': ssl.PROTOCOL_TLSv1})
     except websocket.WebSocketException:
         print "connection to %s failed." % target_url
         import traceback
