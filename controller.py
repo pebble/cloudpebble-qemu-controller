@@ -113,6 +113,8 @@ def proxy_ws(emu, attr, subprotocols=[]):
     group.join()
     return ''
 
+app.app_protocol = lambda x: ['binary']
+
 @app.route('/qemu/<emu>/ws/phone')
 def ws_phone(emu):
     return proxy_ws(emu, 'ws_port')
