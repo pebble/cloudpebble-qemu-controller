@@ -90,17 +90,17 @@ def proxy_ws(emu, attr):
         return 'failed', 500
     alive = [True]
     print 'connected'
-    def do_recv(a, b):
+    def do_recv(receive, send):
         try:
             while alive[0]:
-                b.send(a.recv())
+                send(receive())
         except (websocket.WebSocketException, geventwebsocket.WebSocketError):
             alive[0] = False
 
     print 'spawning relays'
     group = gevent.pool.Group()
-    group.spawn(do_recv, server_ws, client_ws)
-    group.spawn(do_recv, client_ws, server_ws)
+    group.spawn(do_recv, lambda: server_ws.recv(), lambda x: client_ws.send_binary(x))
+    group.spawn(do_recv, lambda: bytearray(client_ws.receive()), lambda x: server_ws.send(x))
     group.join()
     print 'relays exited'
     return ''
