@@ -82,11 +82,12 @@ def proxy_ws(emu, attr):
     print 'connecting...'
     target_url = "ws://localhost:%d/" % getattr(emulator, attr)
     try:
-        client_ws = websocket.create_connection(target_url)
+        client_ws = websocket.create_connection(target_url, subprotocols=["binary"])
     except websocket.WebSocketException:
         print "connection to %s failed." % target_url
         import traceback
         traceback.print_exc()
+        return 'failed', 500
     alive = [True]
     print 'connected'
     def do_recv(a, b):
