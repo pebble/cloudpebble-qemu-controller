@@ -168,6 +168,7 @@ if __name__ == '__main__':
             'ssl_version': ssl.PROTOCOL_TLSv1,
         }
     server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler, **ssl_args)
+    server.start()
     if settings.RUN_AS_USER is not None:
         drop_privileges(settings.RUN_AS_USER, settings.RUN_AS_USER)
     server.serve_forever()
