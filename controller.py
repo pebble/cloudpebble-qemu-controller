@@ -17,6 +17,7 @@ from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 import geventwebsocket
 import websocket
+import traceback
 
 import settings
 from emulator import Emulator
@@ -86,10 +87,13 @@ def proxy_ws(emu, attr, subprotocols=[]):
         return  # unreachable but makes IDE happy.
     target_url = "%s://localhost:%d/" % ("wss" if settings.SSL_ROOT is not None else "ws", getattr(emulator, attr))
     try:
-        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols, sslopt={'ssl_version': ssl.PROTOCOL_TLSv1})
-    except websocket.WebSocketException:
+        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols, sslopt={
+            'ssl_version': ssl.PROTOCOL_TLSv1,
+            'ca_certs': '%s/ca-cert.pem' % settings.SSL_ROOT,
+            'cert_reqs': ssl.CERT_NONE,
+        })
+    except:
         print "connection to %s failed." % target_url
-        import traceback
         traceback.print_exc()
         return 'failed', 500
     alive = [True]
