@@ -126,11 +126,18 @@ def ws_vnc(emu):
 
 def _kill_idle_emulators():
     while True:
-        for key, emulator in emulators.items():
-            if now() - emulator.last_ping > 300:
-                print "killing idle emulator %s" % key
-                emulator.kill()
-                del emulators[key]
+        try:
+            print "running idle killer"
+            for key, emulator in emulators.items():
+                print "checking %s" % key
+                if now() - emulator.last_ping > 300:
+                    print "killing idle emulator %s" % key
+                    emulator.kill()
+                    del emulators[key]
+                else:
+                    print "okay; last ping: %s" % emulator.last_ping
+        except Exception as e:
+            traceback.print_exc()
         gevent.sleep(60)
 
 idle_killer = gevent.spawn(_kill_idle_emulators)
