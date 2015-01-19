@@ -4,7 +4,7 @@ from os import environ as env
 import multiprocessing
 
 LAUNCH_AUTH_HEADER = env.get('LAUNCH_AUTH_HEADER', 'secret')
-EMULATOR_LIMIT = int(env.get('EMULATOR_FIXED_LIMIT', (multiprocessing.cpu_count() - 1) * 6))
+EMULATOR_LIMIT = int(env.get('EMULATOR_FIXED_LIMIT', multiprocessing.cpu_count() * 12))
 QEMU_DIR = env['QEMU_DIR']
 QEMU_BIN = env.get('QEMU_BIN', 'qemu-system-arm')
 PKJS_BIN = env.get('PKJS_BIN', 'jskit.py')
