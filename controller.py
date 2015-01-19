@@ -12,6 +12,7 @@ import ssl
 import os
 import pwd
 import grp
+import sys
 
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
@@ -138,6 +139,7 @@ def _kill_idle_emulators():
                     print "okay; last ping: %s" % emulator.last_ping
         except Exception as e:
             traceback.print_exc()
+        sys.stdout.flush()
         gevent.sleep(60)
 
 idle_killer = gevent.spawn(_kill_idle_emulators)
