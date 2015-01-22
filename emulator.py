@@ -43,21 +43,33 @@ class Emulator(object):
     def kill(self):
         self.spi_image.close()
         if self.qemu is not None:
-            self.qemu.kill()
-            for i in xrange(10):
-                gevent.sleep(0.1)
-                if self.qemu.poll() is not None:
-                    break
-            else:
-                raise Exception("Failed to kill qemu in one second.")
+            try:
+                self.qemu.kill()
+                for i in xrange(10):
+                    gevent.sleep(0.1)
+                    if self.qemu.poll() is not None:
+                        break
+                else:
+                    raise Exception("Failed to kill qemu in one second.")
+            except OSError as e:
+                if e.errno == 3:  # No such process
+                    pass
+                else:
+                    raise
         if self.pkjs is not None:
-            self.pkjs.kill()
-            for i in xrange(10):
-                gevent.sleep(0.1)
-                if self.pkjs.poll() is not None:
-                    break
-            else:
-                raise Exception("Failed to kill pkjs in one second.")
+            try:
+                self.pkjs.kill()
+                for i in xrange(10):
+                    gevent.sleep(0.1)
+                    if self.pkjs.poll() is not None:
+                        break
+                else:
+                    raise Exception("Failed to kill pkjs in one second.")
+            except OSError as e:
+                if e.errno == 3:  # No such process
+                    pass
+                else:
+                    raise
         self.group.kill(block=True)
 
     def is_alive(self):
