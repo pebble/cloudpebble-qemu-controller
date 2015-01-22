@@ -59,8 +59,11 @@ def ping(emu):
         try:
             emulators[emu].kill()
         except:
+            print "failed to kill emulator"
+            traceback.print_exc()
             pass
-        del emulators[emu]
+        else:
+            del emulators[emu]
         return jsonify(alive=False)
 
 
@@ -71,8 +74,13 @@ def kill(emu):
     except ValueError:
         abort(404)
     if emu in emulators:
-        emulators[emu].kill()
-    del emulators[emu]
+        try:
+            emulators[emu].kill()
+        except Exception:
+            print "failed to kill:"
+            traceback.print_exc()
+        else:
+            del emulators[emu]
     return jsonify(status='ok')
 
 

@@ -1,5 +1,6 @@
 __author__ = 'katharine'
 
+import gevent
 import gevent.pool
 import tempfile
 import settings
@@ -42,10 +43,22 @@ class Emulator(object):
     def kill(self):
         self.spi_image.close()
         if self.qemu is not None:
-            self.qemu.terminate()
+            self.qemu.kill()
+            for i in xrange(10):
+                gevent.sleep(0.1)
+                if self.qemu.poll() is not None:
+                    break
+            else:
+                raise Exception("Failed to kill qemu in one second.")
         if self.pkjs is not None:
-            self.pkjs.terminate()
-        self.group.kill()
+            self.pkjs.kill()
+            for i in xrange(10):
+                gevent.sleep(0.1)
+                if self.pkjs.poll() is not None:
+                    break
+            else:
+                raise Exception("Failed to kill pkjs in one second.")
+        self.group.kill(block=True)
 
     def is_alive(self):
         if self.qemu is None or self.pkjs is None:
