@@ -20,7 +20,7 @@ def _free_display(display):
 
 
 class Emulator(object):
-    def __init__(self, token):
+    def __init__(self, token, platform, version):
         self.token = token
         self.qemu = None
         self.pkjs = None
@@ -31,6 +31,8 @@ class Emulator(object):
         self.vnc_display = None
         self.vnc_ws_port = None
         self.group = None
+        self.platform = platform
+        self.version = version
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -86,7 +88,7 @@ class Emulator(object):
 
     def _make_spi_image(self):
         self.spi_image = tempfile.NamedTemporaryFile()
-        with open(settings.QEMU_SPI_IMAGE) as f:
+        with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
             self.spi_image.write(f.read())
         self.spi_image.flush()
 
@@ -104,19 +106,30 @@ class Emulator(object):
             x509 = ",x509=%s" % settings.SSL_ROOT
         else:
             x509 = ""
-        self.qemu = subprocess.Popen([
+        image_dir = self._find_qemu_images()
+        qemu_args = [
             settings.QEMU_BIN,
             "-rtc", "base=localtime",
-            "-cpu", "cortex-m3",
-            "-pflash", settings.QEMU_MICRO_IMAGE,
-            "-mtdblock", self.spi_image.name,
+            "-pflash", image_dir + "qemu_micro_flash.bin",
             "-serial", "file:uart1.log",  # this isn't useful, but...
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
             "-monitor", "stdio",
-            "-machine", "pebble-bb2",
             "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
-        ], cwd=settings.QEMU_DIR, stdout=None, stdin=subprocess.PIPE, stderr=None)
+        ]
+        if self.platform == 'aplite':
+            qemu_args.extend([
+                "-machine", "pebble-bb2",
+                "-mtdblock", self.spi_image.name,
+                "-cpu", "cortex-m3",
+            ])
+        elif self.platform == 'basalt':
+            qemu_args.extend([
+                "-machine", "pebble-snowy-bb",
+                "-pflash", self.spi_image.name,
+                "-cpu", "cortex-m4",
+            ])
+        self.qemu = subprocess.Popen(qemu_args, cwd=settings.QEMU_DIR, stdout=None, stdin=subprocess.PIPE, stderr=None)
         self.qemu.stdin.write("change vnc password\n")
         self.qemu.stdin.write("%s\n" % self.token[:8])
         self.group.spawn(self.qemu.communicate)
@@ -133,3 +146,6 @@ class Emulator(object):
             '--token', self.token
         ] + ssl_args)
         self.group.spawn(self.pkjs.communicate)
+
+    def _find_qemu_images(self):
+        return settings.QEMU_IMAGE_ROOT + "/" + self.platform + "/" + self.version + "/"
