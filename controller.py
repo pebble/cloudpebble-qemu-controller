@@ -38,7 +38,9 @@ def launch():
     if len(emulators) >= settings.EMULATOR_LIMIT:
         abort(503)
     uuid = uuid4()
-    emu = Emulator(request.form['token'])
+    if '/' in request.form['platform'] or '/' in request.form['version']:
+        abort(400)
+    emu = Emulator(request.form['token'], request.form['platform'], request.form['version'])
     emulators[uuid] = emu
     emu.last_ping = now()
     emu.run()
