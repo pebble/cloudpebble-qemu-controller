@@ -48,7 +48,6 @@ class Emulator(object):
         self._spawn_pkjs()
 
     def kill(self):
-        self.spi_image.close()
         if self.qemu is not None:
             try:
                 self.qemu.kill()
@@ -100,10 +99,10 @@ class Emulator(object):
         self.vnc_ws_port = self._find_port()
 
     def _make_spi_image(self):
-        self.spi_image = tempfile.NamedTemporaryFile(delete=False)
-        with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
-            self.spi_image.write(f.read())
-        self.spi_image.flush()
+        with tempfile.NamedTemporaryFile(delete=False) as spi:
+            self.spi_image = spi
+            with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
+                self.spi_image.write(f.read())
 
 
     @staticmethod
