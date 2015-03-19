@@ -5,6 +5,7 @@ import gevent.pool
 import os
 import tempfile
 import settings
+import shutil
 import socket
 import subprocess
 import itertools
@@ -36,6 +37,7 @@ class Emulator(object):
         self.version = version
         self.tz_offset = tz_offset
         self.oauth = oauth
+        self.persist_dir = None
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -61,6 +63,10 @@ class Emulator(object):
                     pass
                 else:
                     raise
+            try:
+                os.unlink(self.spi_image)
+            except OSError:
+                pass
         if self.pkjs is not None:
             try:
                 self.pkjs.kill()
@@ -75,6 +81,10 @@ class Emulator(object):
                     pass
                 else:
                     raise
+            try:
+                shutil.rmtree(self.persist_dir)
+            except OSError:
+                pass
         self.group.kill(block=True)
 
     def is_alive(self):
