@@ -40,7 +40,13 @@ def launch():
     uuid = uuid4()
     if '/' in request.form['platform'] or '/' in request.form['version']:
         abort(400)
-    emu = Emulator(request.form['token'], request.form['platform'], request.form['version'])
+    emu = Emulator(
+        request.form['token'],
+        request.form['platform'],
+        request.form['version'],
+        tz_offset=request.form.get('tz_offset', None),
+        oauth=request.form.get('oauth', None)
+    )
     emulators[uuid] = emu
     emu.last_ping = now()
     emu.run()

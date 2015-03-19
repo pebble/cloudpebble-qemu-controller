@@ -2,6 +2,7 @@ __author__ = 'katharine'
 
 import gevent
 import gevent.pool
+import os
 import tempfile
 import settings
 import socket
@@ -20,7 +21,7 @@ def _free_display(display):
 
 
 class Emulator(object):
-    def __init__(self, token, platform, version):
+    def __init__(self, token, platform, version, tz_offset=None, oauth=None):
         self.token = token
         self.qemu = None
         self.pkjs = None
@@ -33,6 +34,8 @@ class Emulator(object):
         self.group = None
         self.platform = platform
         self.version = version
+        self.tz_offset = tz_offset
+        self.oauth = oauth
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -139,12 +142,21 @@ class Emulator(object):
             ssl_args = ['--ssl-root', settings.SSL_ROOT]
         else:
             ssl_args = []
+        env = os.environ.copy()
+        hours = -self.tz_offset // 60
+        minutes = abs(self.tz_offset % 60)
+        tz = "PBL%+03d:%02d" % (-hours, minutes)  # Why minus? Because POSIX is backwards.
+        env['TZ'] = tz
+        if self.oauth is not None:
+            oauth_arg = ['--oauth', self.oauth]
+        else:
+            oauth_arg = []
         self.pkjs = subprocess.Popen([
             "%s/bin/python" % settings.PKJS_VIRTUALENV, settings.PKJS_BIN,
             '--qemu', '127.0.0.1:%d' % self.bt_port,
             '--port', str(self.ws_port),
             '--token', self.token
-        ] + ssl_args)
+        ] + oauth_arg + ssl_args, env=env)
         self.group.spawn(self.pkjs.communicate)
 
     def _find_qemu_images(self):
