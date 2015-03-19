@@ -143,7 +143,7 @@ class Emulator(object):
         else:
             ssl_args = []
         env = os.environ.copy()
-        hours = -self.tz_offset // 60
+        hours = self.tz_offset // 60
         minutes = abs(self.tz_offset % 60)
         tz = "PBL%+03d:%02d" % (-hours, minutes)  # Why minus? Because POSIX is backwards.
         env['TZ'] = tz
