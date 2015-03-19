@@ -151,11 +151,13 @@ class Emulator(object):
             oauth_arg = ['--oauth', self.oauth]
         else:
             oauth_arg = []
+        persist_dir = tempfile.mkdtemp()
         self.pkjs = subprocess.Popen([
             "%s/bin/python" % settings.PKJS_VIRTUALENV, settings.PKJS_BIN,
             '--qemu', '127.0.0.1:%d' % self.bt_port,
             '--port', str(self.ws_port),
-            '--token', self.token
+            '--token', self.token,
+            '--persist', persist_dir,
         ] + oauth_arg + ssl_args, env=env)
         self.group.spawn(self.pkjs.communicate)
 
