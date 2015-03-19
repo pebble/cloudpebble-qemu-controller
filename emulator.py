@@ -64,7 +64,7 @@ class Emulator(object):
                 else:
                     raise
             try:
-                os.unlink(self.spi_image)
+                os.unlink(self.spi_image.name)
             except OSError:
                 pass
         if self.pkjs is not None:
@@ -100,7 +100,7 @@ class Emulator(object):
         self.vnc_ws_port = self._find_port()
 
     def _make_spi_image(self):
-        self.spi_image = tempfile.NamedTemporaryFile()
+        self.spi_image = tempfile.NamedTemporaryFile(delete=False)
         with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
             self.spi_image.write(f.read())
         self.spi_image.flush()
