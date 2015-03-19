@@ -44,7 +44,7 @@ def launch():
         request.form['token'],
         request.form['platform'],
         request.form['version'],
-        tz_offset=request.form.get('tz_offset', None),
+        tz_offset=(int(request.form['tz_offset']) if 'tz_offset' in request.form else None),
         oauth=request.form.get('oauth', None)
     )
     emulators[uuid] = emu
