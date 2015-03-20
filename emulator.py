@@ -147,6 +147,7 @@ class Emulator(object):
         self.group.spawn(self.qemu.communicate)
 
     def _spawn_pkjs(self):
+        os.chdir(os.path.dirname(settings.PKJS_BIN))
         if settings.SSL_ROOT is not None:
             ssl_args = ['--ssl-root', settings.SSL_ROOT]
         else:
