@@ -8,6 +8,17 @@ import gevent.pool
 from flask import Flask, request, jsonify, abort
 from flask.ext.cors import CORS
 from time import time as now
+import ssl
+import os
+import pwd
+import grp
+import sys
+
+from gevent import pywsgi
+from geventwebsocket.handler import WebSocketHandler
+import geventwebsocket
+import websocket
+import traceback
 
 import settings
 from emulator import Emulator
@@ -27,7 +38,15 @@ def launch():
     if len(emulators) >= settings.EMULATOR_LIMIT:
         abort(503)
     uuid = uuid4()
-    emu = Emulator(request.form['token'])
+    if '/' in request.form['platform'] or '/' in request.form['version']:
+        abort(400)
+    emu = Emulator(
+        request.form['token'],
+        request.form['platform'],
+        request.form['version'],
+        tz_offset=(int(request.form['tz_offset']) if 'tz_offset' in request.form else None),
+        oauth=request.form.get('oauth', None)
+    )
     emulators[uuid] = emu
     emu.last_ping = now()
     emu.run()
@@ -48,8 +67,11 @@ def ping(emu):
         try:
             emulators[emu].kill()
         except:
+            print "failed to kill emulator"
+            traceback.print_exc()
             pass
-        del emulators[emu]
+        else:
+            del emulators[emu]
         return jsonify(alive=False)
 
 
@@ -60,17 +82,80 @@ def kill(emu):
     except ValueError:
         abort(404)
     if emu in emulators:
-        emulators[emu].kill()
-    del emulators[emu]
+        try:
+            emulators[emu].kill()
+        except Exception:
+            print "failed to kill:"
+            traceback.print_exc()
+        else:
+            del emulators[emu]
     return jsonify(status='ok')
+
+
+def proxy_ws(emu, attr, subprotocols=[]):
+    server_ws = request.environ.get('wsgi.websocket', None)
+    if server_ws is None:
+        return "websocket endpoint", 400
+
+    try:
+        emulator = emulators[UUID(emu)]
+    except ValueError as e:
+        abort(404)
+        return  # unreachable but makes IDE happy.
+    target_url = "%s://localhost:%d/" % ("wss" if settings.SSL_ROOT is not None else "ws", getattr(emulator, attr))
+    try:
+        client_ws = websocket.create_connection(target_url, subprotocols=subprotocols, sslopt={
+            'ssl_version': ssl.PROTOCOL_TLSv1,
+            'ca_certs': '%s/ca-cert.pem' % settings.SSL_ROOT,
+            'cert_reqs': ssl.CERT_NONE,
+        })
+    except:
+        print "connection to %s failed." % target_url
+        traceback.print_exc()
+        return 'failed', 500
+    alive = [True]
+    def do_recv(receive, send):
+        try:
+            while alive[0]:
+                send(receive())
+        except (websocket.WebSocketException, geventwebsocket.WebSocketError, TypeError):
+            alive[0] = False
+        except:
+            alive[0] = False
+            raise
+
+    group = gevent.pool.Group()
+    group.spawn(do_recv, lambda: server_ws.receive(), lambda x: client_ws.send_binary(x))
+    group.spawn(do_recv, lambda: bytearray(client_ws.recv()), lambda x: server_ws.send(x))
+    group.join()
+    return ''
+
+app.app_protocol = lambda x: 'binary' if 'vnc' in x else None
+
+@app.route('/qemu/<emu>/ws/phone')
+def ws_phone(emu):
+    return proxy_ws(emu, 'ws_port')
+
+@app.route('/qemu/<emu>/ws/vnc')
+def ws_vnc(emu):
+    return proxy_ws(emu, 'vnc_ws_port', subprotocols=['binary'])
+
 
 def _kill_idle_emulators():
     while True:
-        for key, emulator in emulators.items():
-            if now() - emulator.last_ping > 300:
-                print "killing idle emulator %s" % key
-                emulator.kill()
-                del emulators[key]
+        try:
+            print "running idle killer"
+            for key, emulator in emulators.items():
+                print "checking %s" % key
+                if now() - emulator.last_ping > 300:
+                    print "killing idle emulator %s" % key
+                    emulator.kill()
+                    del emulators[key]
+                else:
+                    print "okay; last ping: %s" % emulator.last_ping
+        except Exception as e:
+            traceback.print_exc()
+        sys.stdout.flush()
         gevent.sleep(60)
 
 idle_killer = gevent.spawn(_kill_idle_emulators)
@@ -81,8 +166,40 @@ def kill_emulators():
         emulator.kill()
     emulators.clear()
 
+
+def drop_privileges(uid_name='nobody', gid_name='nogroup'):
+    if os.getuid() != 0:
+        # We're not root so, like, whatever dude
+        return
+
+    # Get the uid/gid from the name
+    running_uid = pwd.getpwnam(uid_name).pw_uid
+    running_gid = grp.getgrnam(gid_name).gr_gid
+
+    # Remove group privileges
+    os.setgroups([])
+
+    # Try setting the new uid/gid
+    os.setgid(running_gid)
+    os.setuid(running_uid)
+
+    # Ensure a very conservative umask
+    os.umask(077)
+
 print "Emulator limit: %d" % settings.EMULATOR_LIMIT
 
 if __name__ == '__main__':
     app.debug = settings.DEBUG
-    app.run(settings.HOST, settings.PORT)
+    ssl_args = {}
+    if settings.SSL_ROOT is not None:
+        ssl_args = {
+            'keyfile': '%s/server-key.pem' % settings.SSL_ROOT,
+            'certfile': '%s/server-cert.pem' % settings.SSL_ROOT,
+            'ca_certs': '%s/ca-cert.pem' % settings.SSL_ROOT,
+            'ssl_version': ssl.PROTOCOL_TLSv1,
+        }
+    server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler, **ssl_args)
+    server.start()
+    if settings.RUN_AS_USER is not None:
+        drop_privileges(settings.RUN_AS_USER, settings.RUN_AS_USER)
+    server.serve_forever()

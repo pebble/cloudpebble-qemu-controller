@@ -1,8 +1,11 @@
 __author__ = 'katharine'
 
+import gevent
 import gevent.pool
+import os
 import tempfile
 import settings
+import shutil
 import socket
 import subprocess
 import itertools
@@ -19,7 +22,7 @@ def _free_display(display):
 
 
 class Emulator(object):
-    def __init__(self, token, debug=False):
+    def __init__(self, token, platform, version, tz_offset=None, oauth=None, debug=False):
         if debug and not settings.DEBUG_ENABLED:
             raise Exception("Can't enable debug without DEBUG_ENABLED set.")
         self.token = token
@@ -37,6 +40,11 @@ class Emulator(object):
         self.gdb_ws_port = None
         self.group = None
         self.debug = debug
+        self.platform = platform
+        self.version = version
+        self.tz_offset = tz_offset
+        self.oauth = oauth
+        self.persist_dir = None
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -49,21 +57,43 @@ class Emulator(object):
         self._spawn_pkjs()
 
     def kill(self):
-        self.spi_image.close()
         if self.qemu is not None:
-            self.qemu.terminate()
+            self._kill_process(self.qemu)
+            try:
+                os.unlink(self.spi_image.name)
+            except OSError:
+                pass
         if self.pkjs is not None:
-            self.pkjs.terminate()
+            self._kill_process(self.pkjs)
         if self.gdbserver is not None:
-            self.gdbserver.terminate()
+            self._kill_process(self.gdbserver)
         if self.gdb is not None:
-            self.gdb.terminate()
-        self.group.kill()
+            self._kill_process(self.gdb)
+        try:
+            shutil.rmtree(self.persist_dir)
+        except OSError:
+            pass
+        self.group.kill(block=True)
 
     def is_alive(self):
         if self.qemu is None or self.pkjs is None:
             return False
         return self.qemu.poll() is None and self.pkjs.poll() is None
+
+    def _kill_process(self, proc):
+        try:
+            proc.kill()
+            for i in xrange(10):
+                gevent.sleep(0.1)
+                if proc.poll() is not None:
+                    break
+            else:
+                raise Exception("Failed to kill process in one second.")
+        except OSError as e:
+            if e.errno == 3:  # No such process
+                pass
+            else:
+                raise
 
     def _qemu_image(self):
         if self.debug:
@@ -83,10 +113,10 @@ class Emulator(object):
             self.gdb_ws_port = self._find_port()
 
     def _make_spi_image(self):
-        self.spi_image = tempfile.NamedTemporaryFile()
-        with open(settings.QEMU_SPI_IMAGE) as f:
-            self.spi_image.write(f.read())
-        self.spi_image.flush()
+        with tempfile.NamedTemporaryFile(delete=False) as spi:
+            self.spi_image = spi
+            with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
+                self.spi_image.write(f.read())
 
 
     @staticmethod
@@ -102,40 +132,59 @@ class Emulator(object):
             x509 = ",x509=%s" % settings.SSL_ROOT
         else:
             x509 = ""
-        qemu_params = [
+        image_dir = self._find_qemu_images()
+        qemu_args = [
+            settings.QEMU_BIN,
             "-rtc", "base=localtime",
-            "-cpu", "cortex-m3",
-            "-pflash", self._qemu_image(),
-            "-mtdblock", self.spi_image.name,
-            "-serial", "null",  # These are logs that nothing actually logs to.
+            "-pflash", image_dir + "qemu_micro_flash.bin",
+            "-serial", "null",
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
             "-monitor", "stdio",
-            "-machine", "pebble-bb2",
             "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
         ]
         if self.debug:
             qemu_params.extend(["-gdb", "tcp:127.0.0.1:%d" % self.qemu_gdb_port])
-        self.qemu = subprocess.Popen([settings.QEMU_BIN] + qemu_params,
-                                     cwd=settings.QEMU_DIR,
-                                     stdout=None,
-                                     stdin=subprocess.PIPE,
-                                     stderr=None)
+        if self.platform == 'aplite':
+            qemu_args.extend([
+                "-machine", "pebble-bb2",
+                "-mtdblock", self.spi_image.name,
+                "-cpu", "cortex-m3",
+            ])
+        elif self.platform == 'basalt':
+            qemu_args.extend([
+                "-machine", "pebble-snowy-bb",
+                "-pflash", self.spi_image.name,
+                "-cpu", "cortex-m4",
+            ])
+        self.qemu = subprocess.Popen(qemu_args, cwd=settings.QEMU_DIR, stdout=None, stdin=subprocess.PIPE, stderr=None)
         self.qemu.stdin.write("change vnc password\n")
         self.qemu.stdin.write("%s\n" % self.token[:8])
         self.group.spawn(self.qemu.communicate)
 
     def _spawn_pkjs(self):
+        os.chdir(os.path.dirname(settings.PKJS_BIN))
         if settings.SSL_ROOT is not None:
             ssl_args = ['--ssl-root', settings.SSL_ROOT]
         else:
             ssl_args = []
+        env = os.environ.copy()
+        hours = self.tz_offset // 60
+        minutes = abs(self.tz_offset % 60)
+        tz = "PBL%+03d:%02d" % (-hours, minutes)  # Why minus? Because POSIX is backwards.
+        env['TZ'] = tz
+        if self.oauth is not None:
+            oauth_arg = ['--oauth', self.oauth]
+        else:
+            oauth_arg = []
+        self.persist_dir = tempfile.mkdtemp()
         self.pkjs = subprocess.Popen([
             "%s/bin/python" % settings.PKJS_VIRTUALENV, settings.PKJS_BIN,
             '--qemu', '127.0.0.1:%d' % self.bt_port,
             '--port', str(self.ws_port),
-            '--token', self.token
-        ] + ssl_args)
+            '--token', self.token,
+            '--persist', self.persist_dir,
+        ] + oauth_arg + ssl_args, env=env)
         self.group.spawn(self.pkjs.communicate)
 
     def _spawn_gdb(self):
@@ -154,3 +203,6 @@ class Emulator(object):
             "--token ", self.token,
         ])
         self.group.spawn(self.gdb.communicate)
+
+    def _find_qemu_images(self):
+        return settings.QEMU_IMAGE_ROOT + "/" + self.platform + "/" + self.version + "/"
