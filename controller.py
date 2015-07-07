@@ -44,13 +44,15 @@ def launch():
         request.form['token'],
         request.form['platform'],
         request.form['version'],
+        debug_image=(request.form.get('debug', '0') == '1'),
         tz_offset=(int(request.form['tz_offset']) if 'tz_offset' in request.form else None),
         oauth=request.form.get('oauth', None)
     )
     emulators[uuid] = emu
     emu.last_ping = now()
     emu.run()
-    return jsonify(uuid=uuid, ws_port=emu.ws_port, vnc_display=emu.vnc_display, vnc_ws_port=emu.vnc_ws_port)
+    return jsonify(uuid=uuid, ws_port=emu.ws_port, vnc_display=emu.vnc_display,
+                   vnc_ws_port=emu.vnc_ws_port, console_port=emu.console_port)
 
 @app.route('/qemu/<emu>/ping', methods=['POST'])
 def ping(emu):

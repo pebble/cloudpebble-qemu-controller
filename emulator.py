@@ -22,7 +22,7 @@ def _free_display(display):
 
 
 class Emulator(object):
-    def __init__(self, token, platform, version, tz_offset=None, oauth=None):
+    def __init__(self, token, platform, version, debug_image=False, tz_offset=None, oauth=None):
         self.token = token
         self.qemu = None
         self.pkjs = None
@@ -38,6 +38,7 @@ class Emulator(object):
         self.tz_offset = tz_offset
         self.oauth = oauth
         self.persist_dir = None
+        self.debug_image = debug_image
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -172,4 +173,5 @@ class Emulator(object):
         self.group.spawn(self.pkjs.communicate)
 
     def _find_qemu_images(self):
-        return settings.QEMU_IMAGE_ROOT + "/" + self.platform + "/" + self.version + "/"
+        image_type = 'debug' if self.debug_image else 'release'
+        return settings.QEMU_IMAGE_ROOT + "/" + image_type + "/" + self.platform + "/" + self.version + "/"
