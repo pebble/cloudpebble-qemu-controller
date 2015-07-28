@@ -145,6 +145,27 @@ class Emulator(object):
         self.qemu.stdin.write("change vnc password\n")
         self.qemu.stdin.write("%s\n" % self.token[:8])
         self.group.spawn(self.qemu.communicate)
+        self._wait_for_qemu()
+
+    def _wait_for_qemu(self):
+        for i in range(20):
+            gevent.sleep(0.2)
+            try:
+                s = socket.create_connection(('localhost', self.qemu_serial_port))
+            except socket.error:
+                pass
+            else:
+                break
+        else:
+            raise Exception("Emulator launch timed out.")
+
+        received = ''
+        while True:
+            received += s.recv(256)
+            # PBL-21275: we'll add less hacky solutions for this to the firmware.
+            if "<SDK Home>" in received or "<Launcher>" in received:
+                break
+        s.close()
 
     def _spawn_pkjs(self):
         os.chdir(os.path.dirname(settings.PKJS_BIN))
