@@ -151,7 +151,7 @@ class Emulator(object):
         for i in range(20):
             gevent.sleep(0.2)
             try:
-                s = socket.create_connection(('localhost', self.qemu_serial_port))
+                s = socket.create_connection(('localhost', self.console_port))
             except socket.error:
                 pass
             else:
