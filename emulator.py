@@ -123,7 +123,7 @@ class Emulator(object):
             settings.QEMU_BIN,
             "-rtc", "base=localtime",
             "-pflash", image_dir + "qemu_micro_flash.bin",
-            "-serial", "file:uart1.log",  # this isn't useful, but...
+            "-serial", "null",  # this isn't useful, but...
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
             "-monitor", "stdio",
