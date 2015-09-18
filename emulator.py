@@ -141,6 +141,12 @@ class Emulator(object):
                 "-pflash", self.spi_image.name,
                 "-cpu", "cortex-m4",
             ])
+        elif self.platform == 'chalk':
+            qemu_args.extend([
+                "-machine", "pebble-s4-bb",
+                "-pflash", self.spi_image.name,
+                "-cpu", "cortex-m4",
+            ])
         self.qemu = subprocess.Popen(qemu_args, cwd=settings.QEMU_DIR, stdout=None, stdin=subprocess.PIPE, stderr=None)
         self.qemu.stdin.write("change vnc password\n")
         self.qemu.stdin.write("%s\n" % self.token[:8])
