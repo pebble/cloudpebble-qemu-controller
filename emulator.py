@@ -195,6 +195,7 @@ class Emulator(object):
             '--port', str(self.ws_port),
             '--token', self.token,
             '--persist', self.persist_dir,
+            '--block-private-addresses',
         ] + oauth_arg + ssl_args, env=env)
         self.group.spawn(self.pkjs.communicate)
 
