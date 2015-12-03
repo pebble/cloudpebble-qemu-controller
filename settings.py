@@ -16,6 +16,9 @@ PKJS_VIRTUALENV = env['PKJS_VIRTUALENV']
 # The requirement is satisfied by the pebble/qemu-tintin-images repo.
 QEMU_IMAGE_ROOT = env['QEMU_IMAGE_ROOT']
 
+PEBBLE_TEST_BIN = env.get('PEBBLE_TEST_BIN', None)
+PEBBLE_LOGHASH_DICT = env.get('PEBBLE_LOGHASH_DICT', None)
+
 SSL_ROOT = env.get('SSL_ROOT', None)
 
 PORT = int(env.get('QCON_PORT', 5001))

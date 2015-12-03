@@ -3,13 +3,20 @@ import os
 import shutil
 import tempfile
 import subprocess
+import settings
 from zipfile import ZipFile
+
 
 class Monkey():
     def __init__(self, archive):
-        # TODO: DON'T HARDCODE THESE
-        self.loghash_path = '/home/vagrant/loghash/loghash_dict.json'
-        self.runner_path = '/home/vagrant/pebble-test/runner.py'
+        self.loghash_path = settings.PEBBLE_LOGHASH_DICT
+        self.runner_path = settings.PEBBLE_TEST_BIN
+        if not self.loghash_path or not self.runner_path:
+            variables = " and ".join(x for x in [
+                'PEBBLE_LOGHASH_DICT' if not self.loghash_path else None,
+                'PEBBLE_TEST_BIN' if not self.runner_path else None]
+                if x)
+            raise Exception("Cannot run test, %s not set." % variables)
 
         self.tempdir = tempfile.mkdtemp()
         self.thread = None
@@ -35,12 +42,8 @@ class Monkey():
 
     def run(self, console_port):
         env = self.make_environment(console_port)
-
-        # TODO: consider the name
-        self.runner = subprocess.Popen(['/usr/bin/env', 'python', self.runner_path, 'monkey'],
-                                       cwd=self.tempdir,
-                                       env=env)
-
+        args = [self.runner_path, 'monkey']
+        self.runner = subprocess.Popen(args, cwd=self.tempdir, env=env)
         self.thread = gevent.spawn(self.wait)
 
     def clean(self):
