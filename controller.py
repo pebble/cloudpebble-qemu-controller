@@ -7,6 +7,7 @@ import gevent
 import gevent.pool
 from flask import Flask, request, jsonify, abort
 from flask.ext.cors import CORS
+from werkzeug import secure_filename
 from time import time as now
 import ssl
 import os
@@ -128,6 +129,20 @@ def proxy_ws(emu, attr, subprotocols=[]):
     return ''
 
 app.app_protocol = lambda x: 'binary' if 'vnc' in x else None
+
+@app.route('/qemu/<emu>/test', methods=['POST'])
+def test(emu):
+    try:
+        emulator = emulators[UUID(emu)]
+    except ValueError:
+        abort(404)
+        return
+    if emulator.token != request.form['token']:
+        abort(403)
+
+    emulator.run_test(request.files['archive'])
+
+    return jsonify(success=False)
 
 @app.route('/qemu/<emu>/ws/phone')
 def ws_phone(emu):

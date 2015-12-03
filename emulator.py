@@ -10,6 +10,8 @@ import socket
 import subprocess
 import itertools
 
+from monkey import Monkey
+
 _used_displays = set()
 def _find_display():
     for i in itertools.count():
@@ -38,6 +40,7 @@ class Emulator(object):
         self.tz_offset = tz_offset
         self.oauth = oauth
         self.persist_dir = None
+        self.test_runner = None
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -84,12 +87,25 @@ class Emulator(object):
                 shutil.rmtree(self.persist_dir)
             except OSError:
                 pass
+        if self.test_runner is not None:
+            self.test_runner.kill()
+
         self.group.kill(block=True)
 
     def is_alive(self):
         if self.qemu is None or self.pkjs is None:
             return False
         return self.qemu.poll() is None and self.pkjs.poll() is None
+
+    def run_test(self, archive):
+        if self.test_runner and self.test_runner.is_alive():
+            raise Exception("A test is already running")
+        if self.test_runner:
+            self.test_runner.kill()
+        self.test_runner = Monkey(archive)
+        self.test_runner.run(self.console_port)
+
+
 
     def _choose_ports(self):
         self.console_port = self._find_port()
