@@ -140,7 +140,7 @@ def test(emu):
     if emulator.token != request.form['token']:
         abort(403)
 
-    emulator.run_test(request.files['archive'])
+    emulator.run_test(request.files['archive'], callback_url=request.form['notify'])
 
     return jsonify(success=False)
 

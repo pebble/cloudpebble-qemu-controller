@@ -97,13 +97,11 @@ class Emulator(object):
             return False
         return self.qemu.poll() is None and self.pkjs.poll() is None
 
-    def run_test(self, archive):
+    def run_test(self, archive, callback_url):
         if self.test_runner and self.test_runner.is_alive():
             raise Exception("A test is already running")
-        if self.test_runner:
-            self.test_runner.kill()
-        self.test_runner = Monkey(archive)
-        self.test_runner.run(self.console_port)
+        self.test_runner = Monkey(archive, self.console_port, callback_url=callback_url)
+        self.test_runner.run()
 
 
 
