@@ -8,7 +8,7 @@ import requests
 from zipfile import ZipFile
 
 class Monkey():
-    def __init__(self, archive, console_port, callback_url):
+    def __init__(self, archive, console_port, bt_port, callback_url):
         """ Set up a Monkey test
 
         :param archive: a file or filename which can be opened by ZipFile
@@ -28,6 +28,7 @@ class Monkey():
         self.thread = None
         self.runner = None
         self.console_port = console_port
+        self.bt_port = bt_port
         self.callback_url = callback_url
 
         with ZipFile(archive) as zip:
@@ -39,6 +40,7 @@ class Monkey():
         env['PEBBLE_LOGHASH_DICT'] = self.loghash_path
         env['PEBBLE_VIRTUAL_ONLY'] = '1'
         env['PEBBLE_DEVICE'] = 'socket://localhost:{}'.format(self.console_port)
+        env['PEBBLE_BT_DEVICE'] = 'socket://localhost:{}'.format(self.bt_port)
         return env
 
     def notify_cloudpebble(self, code, log):

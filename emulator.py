@@ -99,11 +99,10 @@ class Emulator(object):
 
     def run_test(self, archive, callback_url):
         if self.test_runner and self.test_runner.is_alive():
+            print "A test is already running"
             raise Exception("A test is already running")
-        self.test_runner = Monkey(archive, self.console_port, callback_url=callback_url)
+        self.test_runner = Monkey(archive, self.console_port, self.bt_port, callback_url=callback_url)
         self.test_runner.run()
-
-
 
     def _choose_ports(self):
         self.console_port = self._find_port()
@@ -117,7 +116,6 @@ class Emulator(object):
             self.spi_image = spi
             with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
                 self.spi_image.write(f.read())
-
 
     @staticmethod
     def _find_port():

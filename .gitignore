@@ -52,3 +52,11 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Secrets
+id_rsa
+loghash_dict.json
+pip.conf
+
+# QEMU FW
+qemu-tintin-images
