@@ -5,9 +5,9 @@ import gevent.monkey
 gevent.monkey.patch_all(subprocess=True)
 import gevent
 import gevent.pool
-from flask import Flask, request, jsonify, abort
+from gevent.queue import Queue
+from flask import Flask, request, jsonify, abort, Response
 from flask.ext.cors import CORS
-from werkzeug import secure_filename
 from time import time as now
 import ssl
 import os
@@ -132,17 +132,50 @@ app.app_protocol = lambda x: 'binary' if 'vnc' in x else None
 
 @app.route('/qemu/<emu>/test', methods=['POST'])
 def test(emu):
+    print "Starting test"
+    try:
+        emulator = emulators[UUID(emu)]
+        print "Got emulator"
+    except ValueError:
+        print "No emulator"
+        abort(404)
+        return
+    if emulator.token != request.form['token']:
+        print "Invalid token"
+        abort(403)
+
+    emulator.run_test(request.files['archive'], callback_url=request.form['notify'])
+    return jsonify(success=True)
+
+@app.route('/qemu/<emu>/test/subscribe', methods=['GET'])
+def test_subscribe(emu):
     try:
         emulator = emulators[UUID(emu)]
     except ValueError:
         abort(404)
         return
-    if emulator.token != request.form['token']:
-        abort(403)
+    # if emulator.token != request.args['token']:
+    #     abort(403)
+    #     return
+    if not emulator.test_runner:
+        abort(400)
+        return
 
-    emulator.run_test(request.files['archive'], callback_url=request.form['notify'])
+    def subscription():
+        q = Queue()
+        emulator.test_runner.subscribe(q)
+        id = 0
+        while True:
+            result = q.get()
+            if result == StopIteration:
+                return
+            else:
+                id += 1
+                yield "data: {}\nid: {}\n\n".format(result, id)
 
-    return jsonify(success=False)
+    return Response(subscription(), mimetype="text/event-stream")
+
+
 
 @app.route('/qemu/<emu>/ws/phone')
 def ws_phone(emu):

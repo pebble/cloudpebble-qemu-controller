@@ -23,14 +23,13 @@ class Monkey():
                 'PEBBLE_TEST_BIN' if not self.runner_path else None]
                 if x)
             raise Exception("Cannot run test, %s not set." % variables)
-
         self.tempdir = tempfile.mkdtemp()
         self.thread = None
         self.runner = None
         self.console_port = console_port
         self.bt_port = bt_port
         self.callback_url = callback_url
-
+        self.subscriptions = []
         with ZipFile(archive) as zip:
             zip.extractall(self.tempdir)
 
@@ -55,15 +54,32 @@ class Monkey():
     def wait(self):
         """ Gevent thread. Wait for the runner to complete, then notifies CloudPebble and cleans up. """
         try:
-            stdout, stderr = self.runner.communicate()
-            code = self.runner.wait()
-            stdout += "\nProcess terminated with code: %s" % code
+            output = []
+            try:
+                for line in self.runner.stdout:
+                    output.append(line.strip())
+                    for q in self.subscriptions:
+                        q.put(line.strip())
+
+                code = self.runner.wait() if self.runner else 1
+                output.extend(['', "Process terminated with code: %s" % code])
+                for q in self.subscriptions:
+                    q.put('')
+                    q.put(output[-1])
+            finally:
+                for q in self.subscriptions:
+                    q.put(StopIteration)
+
+            stdout = "\n".join(output)
             self.runner = None
         finally:
             self.clean()
             self.thread = None
 
         self.notify_cloudpebble(code, stdout)
+
+    def subscribe(self, queue):
+        self.subscriptions.append(queue)
 
     def run(self):
         """ Starts the test """
@@ -86,9 +102,9 @@ class Monkey():
 
     def kill(self):
         """ Kill the test runner process and its greenlet """
+        self.subscriptions = []
         if self.runner:
-            if self.runner.poll() is not None:
-                self.runner.kill()
+            self.runner.kill()
             self.runner = None
         if self.thread:
             self.thread.join()

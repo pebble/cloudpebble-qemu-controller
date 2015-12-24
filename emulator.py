@@ -100,6 +100,7 @@ class Emulator(object):
     def run_test(self, archive, callback_url):
         if self.test_runner and self.test_runner.is_alive():
             print "A test is already running"
+            self.test_runner.kill()
             raise Exception("A test is already running")
         self.test_runner = Monkey(archive, self.console_port, self.bt_port, callback_url=callback_url)
         self.test_runner.run()
