@@ -48,7 +48,13 @@ class Monkey():
         :param code: runner.py process return code
         :param log: runner.py STDOUT
         """
-        data = {'log': log, 'code': code, 'token': settings.LAUNCH_AUTH_HEADER}
+        if code == 0:
+            status = 'passed'
+        elif code == 1:
+            status = 'failed'
+        else:
+            status = 'error'
+        data = {'log': log, 'status': status, 'token': settings.LAUNCH_AUTH_HEADER}
         requests.post(self.callback_url, data=data)
 
     def wait(self):
