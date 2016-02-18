@@ -102,8 +102,15 @@ class Emulator(object):
             print "A test is already running"
             self.test_runner.kill()
             raise Exception("A test is already running")
-        self.test_runner = Monkey(archive, self.console_port, self.bt_port, callback_url=callback_url)
-        self.test_runner.run()
+        self.test_runner = Monkey(archive)
+        self.test_runner.run(
+                runner_path=settings.PEBBLE_TEST_BIN,
+                loghash_path=settings.PEBBLE_LOGHASH_DICT,
+                console_port=self.console_port,
+                bt_port=self.bt_port,
+                callback_url=callback_url,
+                launch_auth_header=settings.LAUNCH_AUTH_HEADER
+        )
 
     def _choose_ports(self):
         self.console_port = self._find_port()
@@ -112,8 +119,15 @@ class Emulator(object):
         self.vnc_display = self._find_port() - 5900
         self.vnc_ws_port = self._find_port()
 
-    def _make_spi_image(self):
-        with tempfile.NamedTemporaryFile(delete=False) as spi:
+    def _make_spi_image(self, debug_image=False):
+        # when debug_image is set, the SPI image is written to project directory, so that it can be extracted
+        if not debug_image:
+            spi_file = tempfile.NamedTemporaryFile(delete=False)
+        else:
+            spi_file = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'spi_flash.bin'), 'w')
+            print "SPI located at {}".format(spi_file.name)
+
+        with spi_file as spi:
             self.spi_image = spi
             with open(self._find_qemu_images() + "qemu_spi_flash.bin") as f:
                 self.spi_image.write(f.read())

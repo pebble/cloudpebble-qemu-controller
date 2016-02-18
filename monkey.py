@@ -3,50 +3,50 @@ import os
 import shutil
 import tempfile
 import subprocess
-import settings
 import requests
 from zipfile import ZipFile
 
-class Monkey():
-    def __init__(self, archive, console_port, bt_port, callback_url):
-        """ Set up a Monkey test
 
+class Monkey():
+    def __init__(self, archive):
+        """ Set up a Monkey test
         :param archive: a file or filename which can be opened by ZipFile
-        :param console_port: The console port of the QEMU emulator to connect to
-        :param callback_url: A URL to post the results to
         """
-        self.loghash_path = settings.PEBBLE_LOGHASH_DICT
-        self.runner_path = settings.PEBBLE_TEST_BIN
-        if not self.loghash_path or not self.runner_path:
-            variables = " and ".join(x for x in [
-                'PEBBLE_LOGHASH_DICT' if not self.loghash_path else None,
-                'PEBBLE_TEST_BIN' if not self.runner_path else None]
-                if x)
-            raise Exception("Cannot run test, %s not set." % variables)
+        # self.loghash_path = settings.PEBBLE_LOGHASH_DICT
+        # self.runner_path = settings.PEBBLE_TEST_BIN
+
         self.tempdir = tempfile.mkdtemp()
         self.thread = None
         self.runner = None
-        self.console_port = console_port
-        self.bt_port = bt_port
-        self.callback_url = callback_url
         self.subscriptions = []
-        with ZipFile(archive) as zip:
-            zip.extractall(self.tempdir)
+        with ZipFile(archive) as zip_file:
+            zip_file.extractall(self.tempdir)
 
-    def make_environment(self):
-        """ :return: A copy of the current runtime environment plus the variables needed for runner.py """
+    @staticmethod
+    def make_environment(loghash_path, console_port, bt_port, serial_filename=None):
+        """ Make a copy of the current runtime environment plus the variables needed for runner.py
+        :param serial_filename: Filename for pbltest to output a serial log to, or None
+        :param loghash_path: Path to loghash_dict.json
+        :param console_port: The console port of the QEMU emulator to connect to
+        :param bt_port: The bluetooth port of the QEMU emulator
+        :return: a dictionary of key/value pairs
+        """
         env = os.environ.copy()
-        env['PEBBLE_LOGHASH_DICT'] = self.loghash_path
+        env['PEBBLE_LOGHASH_DICT'] = loghash_path
         env['PEBBLE_VIRTUAL_ONLY'] = '1'
-        env['PEBBLE_DEVICE'] = 'socket://localhost:{}'.format(self.console_port)
-        env['PEBBLE_BT_DEVICE'] = 'socket://localhost:{}'.format(self.bt_port)
+        env['PEBBLE_DEVICE'] = 'socket://localhost:{}'.format(console_port)
+        env['PEBBLE_BT_DEVICE'] = 'socket://localhost:{}'.format(bt_port)
+        if serial_filename:
+            print "Outputting serial log to {}".format(serial_filename)
+            env['PEBBLE_SERIAL_LOG'] = serial_filename
         return env
 
-    def notify_cloudpebble(self, code, log):
+    @staticmethod
+    def notify_cloudpebble(callback_url, code, log, launch_auth_header):
         """ Notify cloudpebble of the result and log output of the test
-
         :param code: runner.py process return code
         :param log: runner.py STDOUT
+        :param launch_auth_header: Authorisation header for notifying cloudpebble of results
         """
         if code == 0:
             status = 'passed'
@@ -54,49 +54,94 @@ class Monkey():
             status = 'failed'
         else:
             status = 'error'
-        data = {'log': log, 'status': status, 'token': settings.LAUNCH_AUTH_HEADER}
-        requests.post(self.callback_url, data=data)
+        data = {'log': log, 'status': status, 'token': launch_auth_header}
+        requests.post(callback_url, data=data)
 
-    def wait(self):
-        """ Gevent thread. Wait for the runner to complete, then notifies CloudPebble and cleans up. """
+    def wait(self, update, callback_url=None, launch_auth_header=None):
+        """ Gevent thread. Wait for the runner to complete, then notifies CloudPebble and cleans up.
+        :param update: True if we should look for new screenshots after the run finishes
+        :param callback_url: A URL to post the results to
+        """
+        output = []
         try:
-            output = []
-            try:
-                for line in self.runner.stdout:
-                    output.append(line.strip())
-                    for q in self.subscriptions:
-                        q.put(line.strip())
-
-                code = self.runner.wait() if self.runner else 1
-                output.extend(['', "Process terminated with code: %s" % code])
+            # record test output and and send it to subscription queues
+            for line in self.runner.stdout:
+                output.append(line.strip())
                 for q in self.subscriptions:
-                    q.put('')
-                    q.put(output[-1])
-            finally:
-                for q in self.subscriptions:
-                    q.put(StopIteration)
+                    q.put(line.strip())
 
-            stdout = "\n".join(output)
-            self.runner = None
+            # when the pipe is closed, wait on the runner process
+            code = self.runner.wait() if self.runner else 1
+
+            # Write the process termination code to the output
+            output.extend(['', "Process terminated with code: %s" % code])
+            for q in self.subscriptions:
+                q.put('')
+                q.put(output[-1])
+
         finally:
+            # Always clean up
             self.clean()
-            self.thread = None
 
-        self.notify_cloudpebble(code, stdout)
+        std_out = "\n".join(output)
+
+        if launch_auth_header and callback_url:
+            self.notify_cloudpebble(callback_url, code, std_out, launch_auth_header)
+        else:
+            print std_out
 
     def subscribe(self, queue):
         self.subscriptions.append(queue)
 
-    def run(self):
-        """ Starts the test """
+    @staticmethod
+    def check_run_arguments(runner_path, loghash_path):
+        if not loghash_path or not runner_path:
+            variables = " and ".join(x for x in [
+                'PEBBLE_LOGHASH_DICT' if not loghash_path else None,
+                'PEBBLE_TEST_BIN' if not runner_path else None]
+                if x)
+            raise Exception("Cannot run test, %s not set." % variables)
+
+    def run(self, runner_path, loghash_path, console_port, bt_port, callback_url=None, launch_auth_header=None, debug=True, update=True, block=False):
+        """ Run a test
+        :param runner_path: Path to runner.py
+        :param loghash_path: Path to loghash_dict.json
+        :param console_port: The console port of the QEMU emulator to connect to
+        :param bt_port: The bluetooth port of the QEMU emulator
+        :param callback_url: A URL to post the results to
+        :param launch_auth_header: Authorisation header for notifying cloudpebble of results
+        :param debug: Whether to output full serial logs
+        :param update: Whether to output new screenshots
+        :param block: Whether to block or run in a greenlet
+        """
+        self.check_run_arguments(runner_path, loghash_path)
         if self.is_alive():
             return
-        env = self.make_environment()
+
+        env = self.make_environment(
+                console_port=console_port,
+                bt_port=bt_port,
+                loghash_path=loghash_path,
+                serial_filename=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'serial.log')
+        )
+
         # --ff is fail-fast, needed because runner.py doesn't return a correct failure code without it.
         # TODO: remove --ff when bug the is fixed
-        args = [self.runner_path, 'monkey', '--ff']
+        args = [runner_path, 'monkey']
+        if debug:
+            args.append('--debug')
+        if update:
+            args.append('--update')
+        else:
+            args.append('--ff')
+        if debug:
+            print "Executing {}".format(" ".join(args))
+
         self.runner = subprocess.Popen(args, cwd=self.tempdir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        self.thread = gevent.spawn(self.wait)
+        if block:
+            self.wait(update, callback_url, launch_auth_header=launch_auth_header)
+        else:
+            self.thread = gevent.spawn(self.wait, update, callback_url, launch_auth_header=launch_auth_header)
 
     def clean(self):
         """ Delete the temporary directory containing the test files, if it exists """
@@ -108,6 +153,8 @@ class Monkey():
 
     def kill(self):
         """ Kill the test runner process and its greenlet """
+        for q in self.subscriptions:
+            q.put(StopIteration)
         self.subscriptions = []
         if self.runner:
             self.runner.kill()
@@ -120,3 +167,6 @@ class Monkey():
         """ :return: True if the test runner is still alive """
         return self.runner is not None and self.thread is not None and self.runner.poll() is None
 
+if __name__ == '__main__':
+    monkey = Monkey('test_archive.zip')
+    monkey.run(os.path.abspath("fake_runner.py"), "loghash_dict.json", "", "", update=True, debug=True, block=True)
