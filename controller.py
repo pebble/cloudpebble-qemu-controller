@@ -143,8 +143,8 @@ def test(emu):
     if emulator.token != request.form['token']:
         print "Invalid token"
         abort(403)
-
-    emulator.run_test(request.files['archive'], callback_url=request.form['notify'])
+    update = request.form.get('update', False)
+    emulator.run_test(request.files['archive'], callback_url=request.form['notify'], update=update)
     return jsonify(success=True)
 
 @app.route('/qemu/<emu>/test/subscribe', methods=['GET'])

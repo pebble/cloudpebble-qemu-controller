@@ -97,7 +97,7 @@ class Emulator(object):
             return False
         return self.qemu.poll() is None and self.pkjs.poll() is None
 
-    def run_test(self, archive, callback_url):
+    def run_test(self, archive, callback_url, update=False):
         if self.test_runner and self.test_runner.is_alive():
             print "A test is already running"
             self.test_runner.kill()
@@ -109,7 +109,8 @@ class Emulator(object):
                 console_port=self.console_port,
                 bt_port=self.bt_port,
                 callback_url=callback_url,
-                launch_auth_header=settings.LAUNCH_AUTH_HEADER
+                launch_auth_header=settings.LAUNCH_AUTH_HEADER,
+                update=update
         )
 
     def _choose_ports(self):

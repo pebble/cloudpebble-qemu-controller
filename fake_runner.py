@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 from glob import glob
+from ta_utils import platform_to_ta_platform, find_all_screenshots
 
 
 def check_environment_vars():
@@ -26,7 +27,7 @@ def check_environment_vars():
         logging.debug('loghash dict found at %s', loghash)
 
 
-def find_screenshots(lines):
+def find_expected_screenshots(lines):
     """ Find screenshots in a monkeyscript file
     :param lines: an iterable of monkeyscript lines
     :return: yield screenshot filenames
@@ -35,21 +36,6 @@ def find_screenshots(lines):
         match = re.match(r'\s*expect\s+screenshot\s+([a-zA-Z._-]+)', line)
         if match:
             yield match.group(1)
-
-
-def platform_to_ta_platform(platform):
-    """ For a given platform, get the details needed to find the screenshots
-    for tests for that platform
-    :param platform: "aplite", "basalt" or "chalk"
-    :return: ("tintin" or "snowy", (width, height))
-    """
-    if platform == 'aplite':
-        return 'tintin', (144, 168)
-    elif platform == 'basalt':
-        return 'snowy', (144, 168)
-    elif platform == 'chalk':
-        return 'snowy', (180, 180)
-    raise ValueError('Unrecognised platform')
 
 
 def make_screenshot_path(base_path, file_name, platform, language='english'):
@@ -68,13 +54,7 @@ def get_sample_screenshots():
     """ Look for existing examples of screenshots for each platform
     :return: a dict with platforms as keys and paths to an existing screenshot for that platform as values
     """
-    samples = {}
-    for platform in ('aplite', 'basalt', 'chalk'):
-        test_platform, size = platform_to_ta_platform(platform)
-        found = glob("./tests/*/*/%s/%s/*.png" % (test_platform, '%dx%d' % (size[0], size[1])))
-        if found:
-            samples[platform] = os.path.abspath(found[0])
-    return samples
+    return dict((name, next(iter(value))) for name, value in find_all_screenshots(os.getcwd()))
 
 
 def verify_or_create_screenshot(base_path, screenshot_name, update=False, platform='basalt'):
@@ -127,7 +107,8 @@ def verify_or_create_screenshots(update=False):
     :param update: Whether to update or verify screenshots """
     for test_filename in find_tests():
             with open(test_filename, 'r') as f:
-                for screenshot_name in find_screenshots(f.readlines()):
+                for screenshot_name in find_expected_screenshots(f.readlines()):
+                    logging.info("EXPECTING {}".format(screenshot_name))
                     verify_or_create_screenshot(os.path.dirname(test_filename), screenshot_name, update)
 
 
