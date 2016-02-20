@@ -157,7 +157,7 @@ def test_subscribe(emu):
     # if emulator.token != request.args['token']:
     #     abort(403)
     #     return
-    if not emulator.test_runner:
+    if not emulator.test_runner or not emulator.test_runner.is_alive():
         abort(400)
         return
 
@@ -167,11 +167,12 @@ def test_subscribe(emu):
         id = 0
         while True:
             result = q.get()
+            id += 1
             if result == StopIteration:
-                return
+                yield "event: done\ndata: done\nid: {}\n\n".format(id)
+                break
             else:
-                id += 1
-                yield "data: {}\nid: {}\n\n".format(result, id)
+                yield "event: log\ndata: {}\nid: {}\n\n".format(result, id)
 
     return Response(subscription(), mimetype="text/event-stream")
 

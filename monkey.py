@@ -120,9 +120,7 @@ class Monkey():
 
         finally:
             # Always clean up
-            self.clean()
-
-
+            self.kill()
 
     def subscribe(self, queue):
         self.subscriptions.append(queue)
@@ -169,8 +167,7 @@ class Monkey():
             args.append('--update')
         else:
             args.append('--ff')
-        if debug:
-            print "Executing {}".format(" ".join(args))
+        print " ".join(["RUNNING"]+args)
 
         self.runner = subprocess.Popen(args, cwd=self.tempdir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if block:
@@ -188,6 +185,7 @@ class Monkey():
 
     def kill(self):
         """ Kill the test runner process and its greenlet """
+        self.clean()
         for q in self.subscriptions:
             q.put(StopIteration)
         self.subscriptions = []
