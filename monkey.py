@@ -7,6 +7,7 @@ import requests
 from zipfile import ZipFile
 from ta_utils import find_all_screenshots
 
+
 class Monkey():
     def __init__(self, archive):
         """ Set up a Monkey test
@@ -167,7 +168,7 @@ class Monkey():
             args.append('--update')
         else:
             args.append('--ff')
-        print " ".join(["RUNNING"]+args)
+        print " ".join(["RUNNING"] + args)
 
         self.runner = subprocess.Popen(args, cwd=self.tempdir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if block:
@@ -175,20 +176,19 @@ class Monkey():
         else:
             self.thread = gevent.spawn(self.wait, update, callback_url, launch_auth_header=launch_auth_header)
 
-    def clean(self):
-        """ Delete the temporary directory containing the test files, if it exists """
+    def kill(self):
+        """ Kill the test runner process and its greenlet and clean up"""
+        # Delete the temporary directory containing the test
         if self.tempdir:
             shutil.rmtree(self.tempdir)
             self.tempdir = None
-        else:
-            print "Failed to delete temporary directory \"%s\"" % self.tempdir
 
-    def kill(self):
-        """ Kill the test runner process and its greenlet """
-        self.clean()
+        # End all log subscriptions
         for q in self.subscriptions:
             q.put(StopIteration)
         self.subscriptions = []
+
+        # Kill subprocesses
         if self.runner:
             self.runner.kill()
             self.runner = None
@@ -199,6 +199,7 @@ class Monkey():
     def is_alive(self):
         """ :return: True if the test runner is still alive """
         return self.runner is not None and self.thread is not None and self.runner.poll() is None
+
 
 if __name__ == '__main__':
     monkey = Monkey('test_archive.zip')

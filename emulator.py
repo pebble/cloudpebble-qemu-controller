@@ -41,6 +41,7 @@ class Emulator(object):
         self.oauth = oauth
         self.persist_dir = None
         self.test_runner = None
+        self.debug_image = False
 
     def run(self):
         self.group = gevent.pool.Group()
@@ -65,10 +66,11 @@ class Emulator(object):
                     pass
                 else:
                     raise
-            try:
-                os.unlink(self.spi_image.name)
-            except OSError:
-                pass
+            if not self.debug_image:
+                try:
+                    os.unlink(self.spi_image.name)
+                except OSError:
+                    pass
         if self.pkjs is not None:
             try:
                 self.pkjs.kill()
@@ -83,6 +85,7 @@ class Emulator(object):
                     pass
                 else:
                     raise
+
             try:
                 shutil.rmtree(self.persist_dir)
             except OSError:
@@ -120,9 +123,9 @@ class Emulator(object):
         self.vnc_display = self._find_port() - 5900
         self.vnc_ws_port = self._find_port()
 
-    def _make_spi_image(self, debug_image=False):
+    def _make_spi_image(self):
         # when debug_image is set, the SPI image is written to project directory, so that it can be extracted
-        if not debug_image:
+        if not self.debug_image:
             spi_file = tempfile.NamedTemporaryFile(delete=False)
         else:
             spi_file = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'spi_flash.bin'), 'w')
