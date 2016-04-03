@@ -33,10 +33,12 @@ class Monkey():
         :return: a dictionary of key/value pairs
         """
         env = os.environ.copy()
-        env['PEBBLE_LOGHASH_DICT'] = loghash_path
         env['PEBBLE_VIRTUAL_ONLY'] = '1'
+        env['PEBBLE_REMOTE_RUN'] = '1'
         env['PEBBLE_DEVICE'] = 'socket://localhost:{}'.format(console_port)
         env['PEBBLE_BT_DEVICE'] = 'socket://localhost:{}'.format(bt_port)
+        if loghash_path:
+            env['PEBBLE_LOGHASH_DICT'] = loghash_path
         if serial_filename:
             print "Outputting serial log to {}".format(serial_filename)
             env['PEBBLE_SERIAL_LOG'] = serial_filename
@@ -126,16 +128,7 @@ class Monkey():
     def subscribe(self, queue):
         self.subscriptions.append(queue)
 
-    @staticmethod
-    def check_run_arguments(runner_path, loghash_path):
-        if not loghash_path or not runner_path:
-            variables = " and ".join(x for x in [
-                'PEBBLE_LOGHASH_DICT' if not loghash_path else None,
-                'PEBBLE_TEST_BIN' if not runner_path else None]
-                if x)
-            raise Exception("Cannot run test, %s not set." % variables)
-
-    def run(self, runner_path, loghash_path, console_port, bt_port, callback_url=None, launch_auth_header=None, debug=False, update=False, block=False):
+    def run(self, runner_path, console_port, bt_port, loghash_path=None, callback_url=None, launch_auth_header=None, debug=True, update=False, block=False):
         """ Run a test
         :param runner_path: Path to runner.py
         :param loghash_path: Path to loghash_dict.json
@@ -147,17 +140,18 @@ class Monkey():
         :param update: Whether to output new screenshots
         :param block: Whether to block or run in a greenlet
         """
-
-        self.check_run_arguments(runner_path, loghash_path)
+        print "path", runner_path
+        if not runner_path:
+            raise Exception("Cannot run pebblesdk-test, PEBBLE_TEST_BIN not set")
         if self.is_alive():
             return
 
         serial_filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'serial.log') if debug else None
         env = self.make_environment(
-                console_port=console_port,
-                bt_port=bt_port,
-                loghash_path=loghash_path,
-                serial_filename=serial_filename
+            console_port=console_port,
+            bt_port=bt_port,
+            loghash_path=loghash_path,
+            serial_filename=serial_filename
         )
 
         # --ff is fail-fast, which makes tests fail immediately upon the first failure

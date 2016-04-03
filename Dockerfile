@@ -36,10 +36,8 @@ RUN chmod 600 /root/.ssh/id_rsa
 RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 RUN mkdir /pebble-test && cd /pebble-test && \
   git clone git@github.com:pebble/pebblesdk-test.git . && \
-  git reset --hard 3953373bd3fb4cde6e4947edacbbe495b7329f40 && \
+  git reset --hard f35fb6887ad63f84c518c63f4146485f6e209722 && \
   pip install -r requirements.txt
-
-ENV PEBBLE_LOGHASH_DICT=/code/loghash_dict.json PEBBLE_TEST_BIN=/pebble-test/runner.py
 
 COPY . /code
 WORKDIR /code

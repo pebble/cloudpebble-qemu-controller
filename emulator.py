@@ -108,7 +108,6 @@ class Emulator(object):
         self.test_runner = Monkey(archive)
         self.test_runner.run(
                 runner_path=settings.PEBBLE_TEST_BIN,
-                loghash_path=settings.PEBBLE_LOGHASH_DICT,
                 console_port=self.console_port,
                 bt_port=self.bt_port,
                 callback_url=callback_url,
