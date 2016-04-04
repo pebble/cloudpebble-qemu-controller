@@ -18,7 +18,7 @@ RUN git clone https://github.com/pebble/pypkjs.git --depth 1 --branch v$PYPKJS_V
 
 RUN virtualenv /pypkjs/.env && . /pypkjs/.env/bin/activate && pip install -r /pypkjs/requirements.txt
 
-ENV FIRMWARE_VERSION 3.8.1
+ENV FIRMWARE_VERSION 3.11
 
 RUN mkdir /qemu-tintin-images && cd /qemu-tintin-images && \
   curl -L https://github.com/pebble/qemu-tintin-images/archive/v${FIRMWARE_VERSION}.tar.gz | tar xz --strip 1
