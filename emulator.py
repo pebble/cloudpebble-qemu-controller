@@ -114,10 +114,6 @@ class Emulator(object):
         return port
 
     def _spawn_qemu(self):
-        if settings.SSL_ROOT is not None:
-            x509 = ",x509=%s" % settings.SSL_ROOT
-        else:
-            x509 = ""
         image_dir = self._find_qemu_images()
         qemu_args = [
             settings.QEMU_BIN,
@@ -126,9 +122,18 @@ class Emulator(object):
             "-serial", "null",  # this isn't useful, but...
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
-            "-monitor", "stdio",
-            "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
+            "-monitor", "stdio"
         ]
+        if settings.SSL_ROOT is not None:
+            qemu_args.extend([
+                "-object", "tls-creds-x509,id=tls0,endpoint=server,dir=%s,verify-peer=off" % settings.SSL_ROOT
+            ])
+            x509 = ",tls-creds=tls0" % settings.SSL_ROOT
+        else:
+            x509 = ""
+        qemu_args.extend([
+            "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
+        ])
         if self.platform == 'aplite':
             qemu_args.extend([
                 "-machine", "pebble-bb2",
