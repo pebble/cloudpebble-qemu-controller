@@ -180,7 +180,7 @@ class Emulator(object):
         while True:
             received += s.recv(256)
             # PBL-21275: we'll add less hacky solutions for this to the firmware.
-            if "<SDK Home>" in received or "<Launcher>" in received:
+            if "<SDK Home>" in received or "<Launcher>" in received or "Ready for communication" in received:
                 break
         s.close()
 
