@@ -128,7 +128,7 @@ class Emulator(object):
             qemu_args.extend([
                 "-object", "tls-creds-x509,id=tls0,endpoint=server,dir=%s,verify-peer=off" % settings.SSL_ROOT
             ])
-            x509 = ",tls-creds=tls0" % settings.SSL_ROOT
+            x509 = ",tls-creds=tls0"
         else:
             x509 = ""
         qemu_args.extend([
