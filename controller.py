@@ -18,16 +18,16 @@ from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
 import geventwebsocket
 import websocket
-import traceback
 
 import settings
 from emulator import Emulator
 from uuid import uuid4, UUID
+import logging
 import atexit
 
 app = Flask(__name__)
 cors = CORS(app, headers=["X-Requested-With", "X-CSRFToken", "Content-Type"], resources="/qemu/*")
-
+logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(asctime)s: %(message)s")
 
 emulators = {}
 
@@ -67,8 +67,7 @@ def ping(emu):
         try:
             emulators[emu].kill()
         except:
-            print "failed to kill emulator"
-            traceback.print_exc()
+            logging.exception("failed to kill emulator")
             pass
         else:
             del emulators[emu]
@@ -85,8 +84,7 @@ def kill(emu):
         try:
             emulators[emu].kill()
         except Exception:
-            print "failed to kill:"
-            traceback.print_exc()
+            logging.exception("failed to kill")
         else:
             del emulators[emu]
     return jsonify(status='ok')
@@ -99,7 +97,7 @@ def proxy_ws(emu, attr, subprotocols=[]):
 
     try:
         emulator = emulators[UUID(emu)]
-    except ValueError as e:
+    except ValueError:
         abort(404)
         return  # unreachable but makes IDE happy.
     target_url = "%s://localhost:%d/" % ("wss" if settings.SSL_ROOT is not None else "ws", getattr(emulator, attr))
@@ -110,8 +108,7 @@ def proxy_ws(emu, attr, subprotocols=[]):
             'cert_reqs': ssl.CERT_NONE,
         })
     except:
-        print "connection to %s failed." % target_url
-        traceback.print_exc()
+        logging.exception("connection to %s failed.", target_url)
         return 'failed', 500
     alive = [True]
     def do_recv(receive, send):
@@ -142,21 +139,25 @@ def ws_vnc(emu):
 
 
 def _kill_idle_emulators():
-    while True:
-        try:
-            print "running idle killer"
-            for key, emulator in emulators.items():
-                print "checking %s" % key
-                if now() - emulator.last_ping > 300:
-                    print "killing idle emulator %s" % key
-                    emulator.kill()
-                    del emulators[key]
-                else:
-                    print "okay; last ping: %s" % emulator.last_ping
-        except Exception as e:
-            traceback.print_exc()
-        sys.stdout.flush()
-        gevent.sleep(60)
+    try:
+        while True:
+            try:
+                logging.info("running idle killer for %d emulators", len(emulators))
+                for key, emulator in emulators.items():
+                    logging.debug("checking %s", key)
+                    if now() - emulator.last_ping > 300:
+                        logging.info("killing idle emulator %s", key)
+                        emulator.kill()
+                        del emulators[key]
+                    else:
+                        logging.debug("okay; last ping: %s", emulator.last_ping)
+            except Exception:
+                logging.exception('Failed to kill idle emulator')
+            sys.stdout.flush()
+            gevent.sleep(60)
+    except Exception:
+        logging.exception("IDLE EMULATOR WATCHDOG DIED. %d emulators were running.", len(emulators))
+        raise
 
 idle_killer = gevent.spawn(_kill_idle_emulators)
 
@@ -186,7 +187,7 @@ def drop_privileges(uid_name='nobody', gid_name='nogroup'):
     # Ensure a very conservative umask
     os.umask(077)
 
-print "Emulator limit: %d" % settings.EMULATOR_LIMIT
+logging.info("Emulator limit: %d", settings.EMULATOR_LIMIT)
 
 if __name__ == '__main__':
     app.debug = settings.DEBUG
