@@ -7,7 +7,7 @@ import os
 import re
 import shutil
 from glob import glob
-from ta_utils import platform_to_ta_platform, find_all_screenshots
+from ta_utils import find_all_screenshots
 
 
 def check_environment_vars():
@@ -46,8 +46,7 @@ def make_screenshot_path(base_path, file_name, platform, language='english'):
     :param language: A language description (must be "english")
     :return: The full path to the screenshot
     """
-    test_platform, size = platform_to_ta_platform(platform)
-    return os.path.join(base_path, language, test_platform, '%dx%d' % (size[0], size[1]), file_name)
+    return os.path.join(base_path, language, platform, file_name)
 
 
 def get_sample_screenshots():

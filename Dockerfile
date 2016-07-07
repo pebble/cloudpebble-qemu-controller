@@ -36,7 +36,8 @@ RUN chmod 600 /root/.ssh/id_rsa
 RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 RUN mkdir /pebble-test && cd /pebble-test && \
   git clone git@github.com:pebble/pebblesdk-test.git . && \
-  git reset --hard f35fb6887ad63f84c518c63f4146485f6e209722 && \
+  git reset --hard 6a41afeeb16c0ee8c2066492631292941a0f8d49 && \
+  sed -i -e 's/pybluetooth/#/g' requirements.txt && \
   pip install -r requirements.txt
 
 COPY . /code
