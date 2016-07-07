@@ -83,24 +83,30 @@ class Monkey():
                     return platform, new
         return None
 
+    @staticmethod
+    def log_line_ok(line):
+        return not line.startswith(('DEBUG', '[libpebble_DEBUG]'))
+
     def find_new_screenshots(self):
         screenshots_after = dict(find_all_screenshots(self.tempdir))
         return self.compare_screenshots(self.screenshots_before, screenshots_after)
 
-    def wait(self, update, callback_url=None, launch_auth_header=None):
+    def wait(self, update, callback_url=None, launch_auth_header=None, debug=False):
         """ Gevent thread. Wait for the runner to complete, then notifies CloudPebble and cleans up.
         :param update: True if we should look for new screenshots after the run finishes
         :param callback_url: A URL to post the results to
         :param launch_auth_header: Authorisation header for notifying cloudpebble of results
+        :param debug: Whether to include debug logs in output
         """
         output = []
 
         try:
             # record test output and and send it to subscription queues
             for line in self.runner.stdout:
-                output.append(line.strip())
-                for q in self.subscriptions:
-                    q.put(line.strip())
+                if debug or self.log_line_ok(line):
+                    output.append(line.strip())
+                    for q in self.subscriptions:
+                        q.put(line.strip())
 
             # when the pipe is closed, wait on the runner process
             code = self.runner.wait() if self.runner else 1
@@ -126,6 +132,7 @@ class Monkey():
             self.kill()
 
     def subscribe(self, queue):
+        # TODO: consider dumping progress up to now
         self.subscriptions.append(queue)
 
     def run(self, runner_path, console_port, bt_port, loghash_path=None, callback_url=None, launch_auth_header=None, debug=True, update=False, block=False):
@@ -166,7 +173,7 @@ class Monkey():
 
         self.runner = subprocess.Popen(args, cwd=self.tempdir, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if block:
-            self.wait(update, callback_url, launch_auth_header=launch_auth_header)
+            self.wait(update, callback_url, launch_auth_header=launch_auth_header, debug=debug)
         else:
             self.thread = gevent.spawn(self.wait, update, callback_url, launch_auth_header=launch_auth_header)
 
