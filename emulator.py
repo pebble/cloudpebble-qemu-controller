@@ -125,7 +125,7 @@ class Emulator(object):
             "-pflash", image_dir + "qemu_micro_flash.bin",
             "-serial", "null",  # this isn't useful, but...
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
-            "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.console_port,   # Used for console
+            "-serial", "tcp:127.0.0.1:%d,server" % self.console_port,   # Used for console
             "-monitor", "stdio",
             "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
         ]
@@ -153,6 +153,12 @@ class Emulator(object):
                 "-mtdblock", self.spi_image.name,
                 "-cpu", "cortex-m4",
             ])
+        elif self.platform == 'emery':
+            qemu_args.extend([
+                "-machine", "pebble-robert-bb",
+                "-pflash", self.spi_image.name,
+                "-cpu", "cortex-m4",
+            ])
         self.qemu = subprocess.Popen(qemu_args, cwd=settings.QEMU_DIR, stdout=None, stdin=subprocess.PIPE, stderr=None)
         self.qemu.stdin.write("change vnc password\n")
         self.qemu.stdin.write("%s\n" % self.token[:8])
@@ -175,7 +181,7 @@ class Emulator(object):
         while True:
             received += s.recv(256)
             # PBL-21275: we'll add less hacky solutions for this to the firmware.
-            if "<SDK Home>" in received or "<Launcher>" in received:
+            if "<SDK Home>" in received or "<Launcher>" in received or "Ready for communication" in received:
                 break
         s.close()
 
