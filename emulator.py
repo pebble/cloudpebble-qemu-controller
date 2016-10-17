@@ -114,10 +114,6 @@ class Emulator(object):
         return port
 
     def _spawn_qemu(self):
-        if settings.SSL_ROOT is not None:
-            x509 = ",x509=%s" % settings.SSL_ROOT
-        else:
-            x509 = ""
         image_dir = self._find_qemu_images()
         qemu_args = [
             settings.QEMU_BIN,
@@ -127,7 +123,7 @@ class Emulator(object):
             "-serial", "tcp:127.0.0.1:%d,server,nowait" % self.bt_port,   # Used for bluetooth data
             "-serial", "tcp:127.0.0.1:%d,server" % self.console_port,   # Used for console
             "-monitor", "stdio",
-            "-vnc", ":%d,password,websocket=%d%s" % (self.vnc_display, self.vnc_ws_port, x509)
+            "-vnc", ":%d,password,websocket=%d" % (self.vnc_display, self.vnc_ws_port)
         ]
         if self.platform == 'aplite':
             qemu_args.extend([
@@ -187,10 +183,6 @@ class Emulator(object):
 
     def _spawn_pkjs(self):
         os.chdir(os.path.dirname(settings.PKJS_BIN))
-        if settings.SSL_ROOT is not None:
-            ssl_args = ['--ssl-root', settings.SSL_ROOT]
-        else:
-            ssl_args = []
         env = os.environ.copy()
         hours = self.tz_offset // 60
         minutes = abs(self.tz_offset % 60)
@@ -208,7 +200,7 @@ class Emulator(object):
             '--token', self.token,
             '--persist', self.persist_dir,
             '--block-private-addresses',
-        ] + oauth_arg + ssl_args, env=env)
+        ] + oauth_arg, env=env)
         self.group.spawn(self.pkjs.communicate)
 
     def _find_qemu_images(self):
