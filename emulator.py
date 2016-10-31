@@ -174,11 +174,14 @@ class Emulator(object):
             raise Exception("Emulator launch timed out.")
 
         received = ''
-        while True:
+        for i in xrange(150):
+            gevent.sleep(0.2)
             received += s.recv(256)
             # PBL-21275: we'll add less hacky solutions for this to the firmware.
             if "<SDK Home>" in received or "<Launcher>" in received or "Ready for communication" in received:
                 break
+        else:
+            raise Exception("Didn't get ready message from firmware.")
         s.close()
 
     def _spawn_pkjs(self):
