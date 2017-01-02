@@ -197,7 +197,7 @@ if __name__ == '__main__':
             'keyfile': '%s/server-key.pem' % settings.SSL_ROOT,
             'certfile': '%s/server-cert.pem' % settings.SSL_ROOT,
             'ca_certs': '%s/ca-cert.pem' % settings.SSL_ROOT,
-            'ssl_version': ssl.PROTOCOL_TLSv1,
+            'ssl_version': ssl.PROTOCOL_TLSv1_2,
         }
     server = pywsgi.WSGIServer(('', settings.PORT), app, handler_class=WebSocketHandler, **ssl_args)
     server.start()
